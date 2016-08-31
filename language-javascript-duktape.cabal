@@ -1,0 +1,27 @@
+name:          language-javascript-duktape
+version:       1.4.1
+synopsis:      Interface to Duktape JavaScript library
+maintainer:    Blake Rain <blake.rain@inchora.com>
+license:       MIT
+build-type:    Simple
+cabal-version: >= 1.10
+
+library
+  exposed-modules: Language.JavaScript.Duktape
+                   Language.JavaScript.Duktape.Raw
+  default-language: Haskell2010
+  hs-source-dirs: src
+  include-dirs: duktape
+  c-sources: duktape/duktape.c
+  includes: duktape.h
+  install-includes: duktape.h
+  build-depends:
+                aeson,
+                base,
+                bytestring,
+                data-default,
+                text,
+                unordered-containers,
+                vector
+  ghc-options: -Wall -O2
+  cc-options: -Wall -pedantic -fstrict-aliasing -fomit-frame-pointer
