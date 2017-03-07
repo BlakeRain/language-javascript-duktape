@@ -51,6 +51,9 @@ module Language.JavaScript.Duktape
   , isValidIndex
   , remove
   , replace
+  , swap
+  , swapTop
+  , normalizeIndex
     -- ** Pushing Values
   , pushArray
   , pushBoolean
@@ -78,10 +81,13 @@ module Language.JavaScript.Duktape
   , getLength
   , getDouble
   , getString
+  , getText
+  , toString
+  , toText
+  , safeToString
   , getValue
   , getJson
   , getBuffer
-  , safeToString
     -- * Object, Array Operations and Enumeration
   , EnumMode (..)
   , enum
@@ -135,6 +141,7 @@ import           Data.Default
 import qualified Data.HashMap.Strict as HM
 import           Data.Maybe
 import           Data.Text (Text, pack, unpack)
+import           Data.Text.Encoding (encodeUtf8)
 import qualified Data.Vector as V
 import           Data.Word
 
@@ -347,6 +354,18 @@ replace :: ScriptContext -> StackIndex -> IO ()
 replace sctx idx = withDukContext sctx $ \ctx ->
   duk_replace ctx (fromIntegral idx)
 
+swap :: ScriptContext -> StackIndex -> StackIndex -> IO ()
+swap sctx from to = withDukContext sctx $ \ctx ->
+  duk_swap ctx (fromIntegral from) (fromIntegral to)
+  
+swapTop :: ScriptContext -> StackIndex -> IO ()
+swapTop sctx from = withDukContext sctx $ \ctx ->
+  duk_swap_top ctx (fromIntegral from)
+
+normalizeIndex :: ScriptContext -> StackIndex -> IO StackIndex
+normalizeIndex sctx idx = withDukContext sctx $ \ctx ->
+  fromIntegral <$> duk_normalize_index ctx (fromIntegral idx)
+
 ----------------------------------------------------------------------------------------------------
 
 -- | Push an empty array object onto the stack.
@@ -422,15 +441,7 @@ pushJson cxt val = pushValue cxt (toJSON val)
 
 -- | Error types
 data ErrType
-  = ErrUncaughtError
-  | ErrApiError
-  | ErrAssertionError
-  | ErrAllocError
-  | ErrInternalError
-  | ErrUnsupportedError
-  | ErrUnimplementedError
-    
-  | ErrError
+  = ErrError
   | ErrEvalError
   | ErrRangeError
   | ErrReferenceError
@@ -440,13 +451,6 @@ data ErrType
   deriving (Eq, Show)
 
 fromErrType :: ErrType -> CInt
-fromErrType ErrUncaughtError      = c_DUK_ERR_UNCAUGHT_ERROR
-fromErrType ErrApiError           = c_DUK_ERR_API_ERROR
-fromErrType ErrAssertionError     = c_DUK_ERR_ASSERTION_ERROR
-fromErrType ErrAllocError         = c_DUK_ERR_ALLOC_ERROR
-fromErrType ErrInternalError      = c_DUK_ERR_INTERNAL_ERROR
-fromErrType ErrUnsupportedError   = c_DUK_ERR_UNSUPPORTED_ERROR
-fromErrType ErrUnimplementedError = c_DUK_ERR_UNIMPLEMENTED_ERROR
 fromErrType ErrError              = c_DUK_ERR_ERROR
 fromErrType ErrEvalError          = c_DUK_ERR_EVAL_ERROR
 fromErrType ErrRangeError         = c_DUK_ERR_RANGE_ERROR
@@ -552,12 +556,21 @@ getString sctx idx = withDukContext sctx $ \ctx -> do
 getText :: ScriptContext -> StackIndex -> IO Text
 getText sctx idx = pack <$> getString sctx idx
 
+toString :: ScriptContext -> StackIndex -> IO String
+toString sctx idx = withDukContext sctx $ \ctx -> do
+  cstr <- duk_to_string ctx (fromIntegral idx)
+  peekCString cstr
+
+toText :: ScriptContext -> StackIndex -> IO Text
+toText sctx idx = pack <$> toString sctx idx
+
 safeToString :: ScriptContext -> StackIndex -> IO String
 safeToString sctx idx = withDukContext sctx $ \ctx ->
   peekCString =<< duk_safe_to_string ctx (fromIntegral idx)
 
 getValue :: ScriptContext -> StackIndex -> IO (Maybe Value)
-getValue sctx idx = do
+getValue sctx idx' = do
+  idx   <- normalizeIndex sctx idx'
   stype <- getType sctx idx
   case stype of
     NullT      -> return (Just Null)
@@ -571,11 +584,25 @@ getValue sctx idx = do
          then Just . Array . V.fromList . catMaybes <$>
                 (enumerate sctx idx (EnumArrayIndices True) True $ const $
                    getValue sctx (negate 1))
-         else Just . Object . HM.fromList . catMaybes <$>
-                (enumerate sctx idx (EnumProperties True False False) True $ const $ do
-                    key  <- getText sctx (negate 2)
-                    fmap (key, ) <$> getValue sctx (negate 1))
+         else do
+           has_date <- getGlobalString sctx "Date"
+           if has_date
+              then do
+                is_date <- instanceOf sctx idx (negate 1)
+                pop sctx
+                if is_date
+                   then either (const Nothing) Just <$> getJsonEncoded sctx idx
+                   else objectFallback idx
+              else do
+                pop sctx
+                objectFallback idx
     _          -> return Nothing
+  where
+    objectFallback idx =
+      Just . Object . HM.fromList . catMaybes <$>
+        (enumerate sctx idx (EnumProperties True False False) True $ const $ do
+            key  <- getText sctx (negate 2)
+            fmap (key, ) <$> getValue sctx (negate 1))
     
 --getValue :: ScriptContext -> StackIndex -> IO (Either String Value)
 --getValue = getJson
@@ -591,6 +618,14 @@ getJson sctx idx = do
       Error err -> return (Left err)
       Success r -> return (Right r)
 
+getJsonEncoded :: FromJSON a => ScriptContext -> StackIndex -> IO (Either String a)
+getJsonEncoded sctx idx = withDukContext sctx $ \ctx -> do
+  duk_dup ctx (fromIntegral idx)
+  cstr <- duk_json_encode ctx (negate 1)
+  duk_pop ctx
+  str <- peekCString cstr
+  return (eitherDecodeStrict (encodeUtf8 (pack str)))
+      
 --getJson :: FromJSON a => ScriptContext -> StackIndex -> IO (Either String a)
 --getJson sctx idx = withDukContext sctx $ \ctx -> do
 --  duk_dup ctx (fromIntegral idx)
@@ -641,7 +676,7 @@ enumModeFlags (EnumArrayIndices sorted) =
   c_DUK_ENUM_ARRAY_INDICES_ONLY .|. (if sorted then c_DUK_ENUM_SORT_ARRAY_INDICES else 0)
 enumModeFlags (EnumProperties own internal nonenum) =
   (if own      then c_DUK_ENUM_OWN_PROPERTIES_ONLY   else 0) .|.
-  (if internal then c_DUK_ENUM_INCLUDE_INTERNAL      else 0) .|.
+  (if internal then c_DUK_ENUM_INCLUDE_HIDDEN        else 0) .|.
   (if nonenum  then c_DUK_ENUM_INCLUDE_NONENUMERABLE else 0)
 
 enum :: ScriptContext ->StackIndex -> EnumMode -> IO ()

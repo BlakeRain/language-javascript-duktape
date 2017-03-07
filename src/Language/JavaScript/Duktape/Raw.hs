@@ -35,16 +35,8 @@ module Language.JavaScript.Duktape.Raw
     , c_DUK_TYPE_MASK_BUFFER
     , c_DUK_TYPE_MASK_POINTER
     , c_DUK_TYPE_MASK_LIGHTFUNC
-      -- * Internal Error Codes
-    , c_DUK_ERR_NONE
-    , c_DUK_ERR_UNIMPLEMENTED_ERROR
-    , c_DUK_ERR_UNSUPPORTED_ERROR
-    , c_DUK_ERR_INTERNAL_ERROR
-    , c_DUK_ERR_ALLOC_ERROR
-    , c_DUK_ERR_ASSERTION_ERROR
-    , c_DUK_ERR_API_ERROR
-    , c_DUK_ERR_UNCAUGHT_ERROR
       -- * ECMAScript E5 Errors
+    , c_DUK_ERR_NONE
     , c_DUK_ERR_ERROR
     , c_DUK_ERR_EVAL_ERROR
     , c_DUK_ERR_RANGE_ERROR
@@ -53,13 +45,6 @@ module Language.JavaScript.Duktape.Raw
     , c_DUK_ERR_TYPE_ERROR
     , c_DUK_ERR_URI_ERROR
       -- * Return Codes from Duktape/C Functions
-    , c_DUK_RET_UNIMPLEMENTED_ERROR
-    , c_DUK_RET_UNSUPPORTED_ERROR
-    , c_DUK_RET_INTERNAL_ERROR
-    , c_DUK_RET_ALLOC_ERROR
-    , c_DUK_RET_ASSERTION_ERROR
-    , c_DUK_RET_API_ERROR
-    , c_DUK_RET_UNCAUGHT_ERROR
     , c_DUK_RET_ERROR
     , c_DUK_RET_EVAL_ERROR
     , c_DUK_RET_RANGE_ERROR
@@ -93,7 +78,7 @@ module Language.JavaScript.Duktape.Raw
     , c_DUK_DEFPROP_CLEAR_CONFIGURABLE
       -- * Enumeration Flags
     , c_DUK_ENUM_INCLUDE_NONENUMERABLE
-    , c_DUK_ENUM_INCLUDE_INTERNAL
+    , c_DUK_ENUM_INCLUDE_HIDDEN
     , c_DUK_ENUM_OWN_PROPERTIES_ONLY
     , c_DUK_ENUM_ARRAY_INDICES_ONLY
     , c_DUK_ENUM_SORT_ARRAY_INDICES
@@ -104,13 +89,6 @@ module Language.JavaScript.Duktape.Raw
     , c_DUK_HINT_NUMBER
       -- * Flags for 'duk_push_thread_raw'
     , c_DUK_THREAD_NEW_GLOBAL_ENV
-      -- * Log Leves
-    , c_DUK_LOG_TRACE
-    , c_DUK_LOG_DEBUG
-    , c_DUK_LOG_INFO
-    , c_DUK_LOG_WARN
-    , c_DUK_LOG_ERROR
-    , c_DUK_LOG_FATAL
       -- * Misc Defines
     , c_DUK_INVALID_INDEX
     , c_DUK_VARARGS
@@ -162,14 +140,11 @@ module Language.JavaScript.Duktape.Raw
     , duk_strict_equals
       -- * Compile
     , duk_compile
-    , duk_compile_file
     , duk_compile_lstring
     , duk_compile_lstring_filename
     , duk_compile_string
     , duk_compile_string_filename
     , duk_eval
-    , duk_eval_file
-    , duk_eval_file_noresult
     , duk_eval_lstring
     , duk_eval_lstring_noresult
     , duk_eval_noresult
@@ -177,14 +152,11 @@ module Language.JavaScript.Duktape.Raw
     , duk_eval_string_noresult
       -- ** Safe Compile
     , duk_pcompile
-    , duk_pcompile_file
     , duk_pcompile_lstring
     , duk_pcompile_lstring_filename
     , duk_pcompile_string
     , duk_pcompile_string_filename
     , duk_peval
-    , duk_peval_file
-    , duk_peval_file_noresult
     , duk_peval_lstring
     , duk_peval_lstring_noresult
     , duk_peval_noresult
@@ -199,8 +171,6 @@ module Language.JavaScript.Duktape.Raw
     , duk_debugger_attach
     , duk_debugger_cooperate
     , duk_debugger_detach
-    , duk_dump_context_stderr
-    , duk_dump_context_stdout
     , duk_push_context_dump
       -- * Error
     , duk_fatal
@@ -343,7 +313,6 @@ module Language.JavaScript.Duktape.Raw
     , duk_push_object
     , duk_push_pointer
     , duk_push_string
-    , duk_push_string_file
     , duk_push_this
     , duk_push_thread
     , duk_push_thread_new_globalenv
@@ -383,7 +352,6 @@ module Language.JavaScript.Duktape.Raw
     , duk_swap
     , duk_swap_top
     , duk_to_boolean
-    , duk_to_defaultvalue
     , duk_to_dynamic_buffer
     , duk_to_fixed_buffer
     , duk_to_int
@@ -457,30 +425,6 @@ foreign import capi "duktape.h value DUK_TYPE_MASK_LIGHTFUNC" c_DUK_TYPE_MASK_LI
 -- | Internal error code: No error (e.g. from @duk_get_error_code()@)
 foreign import capi "duktape.h value DUK_ERR_NONE"
   c_DUK_ERR_NONE :: CInt
--- | Internal error code: @UnimplementedError@
-foreign import capi "duktape.h value DUK_ERR_UNIMPLEMENTED_ERROR"
-  c_DUK_ERR_UNIMPLEMENTED_ERROR :: CInt
--- | Internal error code: @UnsupportedError@
-foreign import capi "duktape.h value DUK_ERR_UNSUPPORTED_ERROR"
-  c_DUK_ERR_UNSUPPORTED_ERROR :: CInt
--- | Internal error code: @InternalError@
-foreign import capi "duktape.h value DUK_ERR_INTERNAL_ERROR"
-  c_DUK_ERR_INTERNAL_ERROR :: CInt
--- | Internal error code: @AllocError@
-foreign import capi "duktape.h value DUK_ERR_ALLOC_ERROR"
-  c_DUK_ERR_ALLOC_ERROR :: CInt
--- | Internal error code: @AssertionError@
-foreign import capi "duktape.h value DUK_ERR_ASSERTION_ERROR"
-  c_DUK_ERR_ASSERTION_ERROR :: CInt
--- | Internal error code: @APIError@
-foreign import capi "duktape.h value DUK_ERR_API_ERROR"
-  c_DUK_ERR_API_ERROR :: CInt
--- | Internal error code: @UncaughtError@
-foreign import capi "duktape.h value DUK_ERR_UNCAUGHT_ERROR"
-  c_DUK_ERR_UNCAUGHT_ERROR :: CInt
-
-----------------------------------------------------------------------------------------------------
-
 -- | ECMAScript E5 error code: @Error@
 foreign import capi "duktape.h value DUK_ERR_ERROR"
   c_DUK_ERR_ERROR :: CInt
@@ -505,20 +449,6 @@ foreign import capi "duktape.h value DUK_ERR_URI_ERROR"
 
 ----------------------------------------------------------------------------------------------------
 
-foreign import capi "duktape.h value DUK_RET_UNIMPLEMENTED_ERROR" 
-  c_DUK_RET_UNIMPLEMENTED_ERROR :: CInt
-foreign import capi "duktape.h value DUK_RET_UNSUPPORTED_ERROR" 
-  c_DUK_RET_UNSUPPORTED_ERROR :: CInt
-foreign import capi "duktape.h value DUK_RET_INTERNAL_ERROR" 
-  c_DUK_RET_INTERNAL_ERROR :: CInt
-foreign import capi "duktape.h value DUK_RET_ALLOC_ERROR" 
-  c_DUK_RET_ALLOC_ERROR :: CInt
-foreign import capi "duktape.h value DUK_RET_ASSERTION_ERROR" 
-  c_DUK_RET_ASSERTION_ERROR :: CInt
-foreign import capi "duktape.h value DUK_RET_API_ERROR" 
-  c_DUK_RET_API_ERROR :: CInt
-foreign import capi "duktape.h value DUK_RET_UNCAUGHT_ERROR" 
-  c_DUK_RET_UNCAUGHT_ERROR :: CInt
 foreign import capi "duktape.h value DUK_RET_ERROR" 
   c_DUK_RET_ERROR :: CInt
 foreign import capi "duktape.h value DUK_RET_EVAL_ERROR" 
@@ -611,8 +541,8 @@ c_DUK_DEFPROP_CLEAR_CONFIGURABLE =
 foreign import capi "duktape.h value DUK_ENUM_INCLUDE_NONENUMERABLE" 
   c_DUK_ENUM_INCLUDE_NONENUMERABLE :: DukUInt
 -- | Enumrate internal properties (regardless of enumerability).
-foreign import capi "duktape.h value DUK_ENUM_INCLUDE_INTERNAL" 
-  c_DUK_ENUM_INCLUDE_INTERNAL :: DukUInt
+foreign import capi "duktape.h value DUK_ENUM_INCLUDE_HIDDEN" 
+  c_DUK_ENUM_INCLUDE_HIDDEN :: DukUInt
 -- | Don't walk prototype chain, only check own properties.
 foreign import capi "duktape.h value DUK_ENUM_OWN_PROPERTIES_ONLY" 
   c_DUK_ENUM_OWN_PROPERTIES_ONLY :: DukUInt
@@ -640,15 +570,6 @@ foreign import capi "duktape.h value DUK_HINT_NUMBER" c_DUK_HINT_NUMBER :: CInt
 -- | Create a new global environment
 foreign import capi "duktape.h value DUK_THREAD_NEW_GLOBAL_ENV"
   c_DUK_THREAD_NEW_GLOBAL_ENV :: CInt
-
-----------------------------------------------------------------------------------------------------
-
-foreign import capi "duktape.h value DUK_LOG_TRACE" c_DUK_LOG_TRACE :: CInt
-foreign import capi "duktape.h value DUK_LOG_DEBUG" c_DUK_LOG_DEBUG :: CInt
-foreign import capi "duktape.h value DUK_LOG_INFO"  c_DUK_LOG_INFO  :: CInt
-foreign import capi "duktape.h value DUK_LOG_WARN"  c_DUK_LOG_WARN  :: CInt
-foreign import capi "duktape.h value DUK_LOG_ERROR" c_DUK_LOG_ERROR :: CInt
-foreign import capi "duktape.h value DUK_LOG_FATAL" c_DUK_LOG_FATAL :: CInt
 
 ----------------------------------------------------------------------------------------------------
 
@@ -892,9 +813,6 @@ foreign import capi safe "duktape.h duk_compact"
 foreign import capi safe "duktape.h duk_compile"
   duk_compile :: Ptr DukContext -> DukUInt -> IO ()
 
-foreign import capi safe "duktape.h duk_compile_file"
-  duk_compile_file :: Ptr DukContext -> DukUInt -> CString -> IO ()
-
 foreign import capi safe "duktape.h duk_compile_lstring"
   duk_compile_lstring :: Ptr DukContext -> DukUInt -> CString -> DukSize -> IO ()
 
@@ -935,7 +853,8 @@ type DukDebugWriteFunction      a = Ptr a -> CString -> DukSize -> IO DukSize
 type DukDebugPeekFunction       a = Ptr a -> IO DukSize
 type DukDebugReadFlushFunction  a = Ptr a -> IO ()
 type DukDebugWriteFlushFunction a = Ptr a -> IO ()
-type DukDebugDetachFunction     a = Ptr a -> IO ()
+type DukDebugRequestFunction    a = Ptr DukContext -> Ptr a -> DukIdx -> IO ()
+type DukDebugDetachFunction     a = Ptr DukContext -> Ptr a -> IO ()
 
 foreign import capi safe "duktape.h duk_debugger_attach"
   duk_debugger_attach :: Ptr DukContext ->
@@ -944,6 +863,7 @@ foreign import capi safe "duktape.h duk_debugger_attach"
                          FunPtr (DukDebugPeekFunction a)       ->
                          FunPtr (DukDebugReadFlushFunction a)  ->
                          FunPtr (DukDebugWriteFlushFunction a) ->
+                         FunPtr (DukDebugRequestFunction a)    ->
                          FunPtr (DukDebugDetachFunction a)     -> Ptr a -> IO ()
 
 foreign import capi safe "duktape.h duk_debugger_cooperate"
@@ -975,12 +895,6 @@ foreign import capi safe "duktape.h duk_destroy_heap"
 foreign import capi safe "duktape.h &duk_destroy_heap"
   duk_destroy_heap_p :: FunPtr (Ptr DukContext -> IO ())
 
-foreign import capi safe "duktape.h duk_dump_context_stderr"
-  duk_dump_context_stderr :: Ptr DukContext -> IO ()
-
-foreign import capi safe "duktape.h duk_dump_context_stdout"
-  duk_dump_context_stdout :: Ptr DukContext -> IO ()
-
 foreign import capi safe "duktape.h duk_dump_function"
   duk_dump_function :: Ptr DukContext -> IO ()
 
@@ -999,12 +913,6 @@ foreign import capi safe "duktape.h duk_equals"
 foreign import capi safe "duktape.h duk_eval"
   duk_eval :: Ptr DukContext -> IO ()
 
-foreign import capi safe "duktape.h duk_eval_file"
-  duk_eval_file :: Ptr DukContext -> CString -> IO ()
-
-foreign import capi safe "duktape.h duk_eval_file_noresult"
-  duk_eval_file_noresult :: Ptr DukContext -> CString -> IO ()
-
 foreign import capi safe "duktape.h duk_eval_lstring"
   duk_eval_lstring :: Ptr DukContext -> CString -> DukSize -> IO ()
 
@@ -1021,7 +929,7 @@ foreign import capi safe "duktape.h duk_eval_string_noresult"
   duk_eval_string_noresult :: Ptr DukContext -> CString -> IO ()
 
 foreign import capi safe "duktape.h duk_fatal"
-  duk_fatal :: Ptr DukContext -> DukErrCode -> CString -> IO ()
+  duk_fatal :: Ptr DukContext -> CString -> IO ()
 
 foreign import capi safe "duktape.h duk_free"
   duk_free :: Ptr DukContext -> Ptr a -> IO ()
@@ -1267,9 +1175,6 @@ foreign import capi safe "duktape.h duk_pcall_prop"
 foreign import capi safe "duktape.h duk_pcompile"
   duk_pcompile :: Ptr DukContext -> DukUInt -> IO DukInt
 
-foreign import capi safe "duktape.h duk_pcompile_file"
-  duk_pcompile_file :: Ptr DukContext -> DukUInt -> CString -> IO DukInt
-
 foreign import capi safe "duktape.h duk_pcompile_lstring"
   duk_pcompile_lstring :: Ptr DukContext -> DukUInt -> CString -> DukSize -> IO DukInt
 
@@ -1284,12 +1189,6 @@ foreign import capi safe "duktape.h duk_pcompile_string_filename"
 
 foreign import capi safe "duktape.h duk_peval"
   duk_peval :: Ptr DukContext -> IO DukInt
-
-foreign import capi safe "duktape.h duk_peval_file"
-  duk_peval_file :: Ptr DukContext -> CString -> IO DukInt
-
-foreign import capi safe "duktape.h duk_peval_file_noresult"
-  duk_peval_file_noresult :: Ptr DukContext -> CString -> IO DukInt
 
 foreign import capi safe "duktape.h duk_peval_lstring"
   duk_peval_lstring :: Ptr DukContext -> CString -> DukSize -> IO DukInt
@@ -1398,9 +1297,6 @@ foreign import capi safe "duktape.h duk_push_pointer"
 
 foreign import capi safe "duktape.h duk_push_string"
   duk_push_string :: Ptr DukContext -> CString -> IO CString
-
-foreign import capi safe "duktape.h duk_push_string_file"
-  duk_push_string_file :: Ptr DukContext -> CString -> IO CString
 
 foreign import capi safe "duktape.h duk_push_this"
   duk_push_this :: Ptr DukContext -> IO ()
@@ -1519,10 +1415,10 @@ foreign import capi safe "duktape.h duk_require_valid_index"
 foreign import capi safe "duktape.h duk_resize_buffer"
   duk_resize_buffer :: Ptr DukContext -> DukIdx -> DukSize -> IO (Ptr a)
 
-type DukSafeCallFunction = Ptr DukContext -> IO DukRet
+type DukSafeCallFunction a = Ptr DukContext -> Ptr a -> IO DukRet
 
 foreign import capi safe "duktape.h duk_safe_call"
-  duk_safe_call :: Ptr DukContext -> FunPtr DukSafeCallFunction -> DukIdx -> DukIdx -> IO DukInt
+  duk_safe_call :: Ptr DukContext -> FunPtr (DukSafeCallFunction a) -> Ptr a -> DukIdx -> DukIdx -> IO DukInt
 
 foreign import capi safe "duktape.h duk_safe_to_lstring"
   duk_safe_to_lstring :: Ptr DukContext -> DukIdx -> Ptr DukSize -> IO CString
@@ -1568,9 +1464,6 @@ foreign import capi safe "duktape.h duk_to_boolean"
 
 foreign import capi safe "duktape.h duk_to_buffer"
   duk_to_buffer :: Ptr DukContext -> DukIdx -> Ptr DukSize -> IO (Ptr a)
-
-foreign import capi safe "duktape.h duk_to_defaultvalue"
-  duk_to_defaultvalue :: Ptr DukContext -> DukIdx -> DukInt -> IO ()
 
 foreign import capi safe "duktape.h duk_to_dynamic_buffer"
   duk_to_dynamic_buffer :: Ptr DukContext -> DukIdx -> Ptr DukSize -> IO (Ptr a)

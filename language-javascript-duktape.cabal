@@ -1,5 +1,5 @@
 name:          language-javascript-duktape
-version:       1.4.1
+version:       2.0.1
 synopsis:      Interface to Duktape JavaScript library
 maintainer:    Blake Rain <blake.rain@inchora.com>
 license:       MIT
