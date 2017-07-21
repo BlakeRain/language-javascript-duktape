@@ -115,6 +115,7 @@ module Language.JavaScript.Duktape.Raw
     , duk_push_external_buffer
     , duk_resize_buffer
     , duk_to_buffer
+    , duk_buffer_to_string
       -- * Byte Code
     , duk_dump_function
     , duk_load_function
@@ -138,6 +139,7 @@ module Language.JavaScript.Duktape.Raw
     , duk_equals
     , duk_instanceof
     , duk_strict_equals
+    , duk_samevalue
       -- * Compile
     , duk_compile
     , duk_compile_lstring
@@ -171,6 +173,8 @@ module Language.JavaScript.Duktape.Raw
     , duk_debugger_attach
     , duk_debugger_cooperate
     , duk_debugger_detach
+    , duk_debugger_notify
+    , duk_debugger_pause
     , duk_push_context_dump
       -- * Error
     , duk_fatal
@@ -230,6 +234,7 @@ module Language.JavaScript.Duktape.Raw
     , duk_del_prop_index
     , duk_del_prop_string
     , duk_get_prop
+    , duk_get_prop_desc
     , duk_get_prop_index
     , duk_get_prop_string
     , duk_has_prop
@@ -252,25 +257,37 @@ module Language.JavaScript.Duktape.Raw
     , duk_get_boolean
     , duk_get_buffer
     , duk_get_buffer_data
+    , duk_get_buffer_data_default
+    , duk_get_buffer_default
     , duk_get_c_function
+    , duk_get_c_function_default
     , duk_get_context
+    , duk_get_context_default
     , duk_get_heapptr
     , duk_get_int
     , duk_get_length
     , duk_get_lstring
     , duk_get_number
+    , duk_get_number_default
+    , duk_get_now
     , duk_get_pointer
+    , duk_get_pointer_default
     , duk_get_string
+    , duk_get_string_default
     , duk_get_top
     , duk_get_top_index
     , duk_get_type
     , duk_get_type_mask
     , duk_get_uint
+    , duk_get_uint_default
     , duk_insert
+    , duk_inspect_callstack_entry
+    , duk_inspect_value
     , duk_is_array
     , duk_is_boolean
     , duk_is_bound_function
     , duk_is_buffer
+    , duk_is_buffer_data
     , duk_is_c_function
     , duk_is_callable
     , duk_is_constructor_call
@@ -288,15 +305,28 @@ module Language.JavaScript.Duktape.Raw
     , duk_is_pointer
     , duk_is_primitive
     , duk_is_string
+    , duk_is_symbol
     , duk_is_thread
     , duk_is_undefined
     , duk_is_valid_index
     , duk_normalize_index
+    , duk_opt_boolean
+    , duk_opt_buffer
+    , duk_opt_buffer_data
+    , duk_opt_c_function
+    , duk_opt_context
+    , duk_opt_heapptr
+    , duk_opt_int
+    , duk_opt_string
+    , duk_opt_number
+    , duk_opt_pointer
+    , duk_opt_uint
     , duk_pop
     , duk_pop_2
     , duk_pop_3
     , duk_pop_n
     , duk_push_array
+    , duk_push_bare_object
     , duk_push_boolean
     , duk_push_buffer
     , duk_push_buffer_object
@@ -347,6 +377,7 @@ module Language.JavaScript.Duktape.Raw
     , duk_safe_to_lstring
     , duk_safe_to_string
     , duk_set_global_object
+    , duk_set_length
     , duk_set_top
     , duk_steal_buffer
     , duk_swap
@@ -378,6 +409,14 @@ module Language.JavaScript.Duktape.Raw
     , duk_map_string
     , duk_substring
     , duk_trim
+      -- * Thread
+    , DukThreadState
+    , duk_resume
+    , duk_suspend
+      -- * Experimental
+    , DukTimeComponents (..)
+    , duk_components_to_time
+    , duk_time_to_components
     ) where
 
 import Data.Bits
@@ -385,6 +424,7 @@ import Data.Bits
 import Foreign.C.Types
 import Foreign.C.String
 import Foreign.Ptr
+import Foreign.Storable
 
 ----------------------------------------------------------------------------------------------------
 
@@ -449,19 +489,19 @@ foreign import capi "duktape.h value DUK_ERR_URI_ERROR"
 
 ----------------------------------------------------------------------------------------------------
 
-foreign import capi "duktape.h value DUK_RET_ERROR" 
+foreign import capi "duktape.h value DUK_RET_ERROR"
   c_DUK_RET_ERROR :: CInt
-foreign import capi "duktape.h value DUK_RET_EVAL_ERROR" 
+foreign import capi "duktape.h value DUK_RET_EVAL_ERROR"
   c_DUK_RET_EVAL_ERROR :: CInt
-foreign import capi "duktape.h value DUK_RET_RANGE_ERROR" 
+foreign import capi "duktape.h value DUK_RET_RANGE_ERROR"
   c_DUK_RET_RANGE_ERROR :: CInt
-foreign import capi "duktape.h value DUK_RET_REFERENCE_ERROR" 
+foreign import capi "duktape.h value DUK_RET_REFERENCE_ERROR"
   c_DUK_RET_REFERENCE_ERROR :: CInt
-foreign import capi "duktape.h value DUK_RET_SYNTAX_ERROR" 
+foreign import capi "duktape.h value DUK_RET_SYNTAX_ERROR"
   c_DUK_RET_SYNTAX_ERROR :: CInt
-foreign import capi "duktape.h value DUK_RET_TYPE_ERROR" 
+foreign import capi "duktape.h value DUK_RET_TYPE_ERROR"
   c_DUK_RET_TYPE_ERROR :: CInt
-foreign import capi "duktape.h value DUK_RET_URI_ERROR" 
+foreign import capi "duktape.h value DUK_RET_URI_ERROR"
   c_DUK_RET_URI_ERROR :: CInt
 
 ----------------------------------------------------------------------------------------------------
@@ -481,34 +521,34 @@ foreign import capi "duktape.h value DUK_COMPILE_STRICT"    c_DUK_COMPILE_STRICT
 ----------------------------------------------------------------------------------------------------
 
 -- | Set writable (effective if 'c_DUK_DEFPROP_HAVE_WRITABLE' set).
-foreign import capi "duktape.h value DUK_DEFPROP_WRITABLE" 
+foreign import capi "duktape.h value DUK_DEFPROP_WRITABLE"
   c_DUK_DEFPROP_WRITABLE :: DukUInt
 -- | Set enumerable (effective if 'c_DUK_DEFPROP_HAVE_ENUMERABLE' set).
-foreign import capi "duktape.h value DUK_DEFPROP_ENUMERABLE" 
+foreign import capi "duktape.h value DUK_DEFPROP_ENUMERABLE"
   c_DUK_DEFPROP_ENUMERABLE :: DukUInt
 -- | Set configurable (effective if 'c_DUK_DEFPROP_HAVE_CONFIGURABLE' set).
-foreign import capi "duktape.h value DUK_DEFPROP_CONFIGURABLE" 
+foreign import capi "duktape.h value DUK_DEFPROP_CONFIGURABLE"
   c_DUK_DEFPROP_CONFIGURABLE :: DukUInt
 -- | Set/clear writeable.
-foreign import capi "duktape.h value DUK_DEFPROP_HAVE_WRITABLE" 
+foreign import capi "duktape.h value DUK_DEFPROP_HAVE_WRITABLE"
   c_DUK_DEFPROP_HAVE_WRITABLE :: DukUInt
 -- | Set/clear enumerable.
-foreign import capi "duktape.h value DUK_DEFPROP_HAVE_ENUMERABLE" 
+foreign import capi "duktape.h value DUK_DEFPROP_HAVE_ENUMERABLE"
   c_DUK_DEFPROP_HAVE_ENUMERABLE :: DukUInt
 -- | Set/clear configurable.
-foreign import capi "duktape.h value DUK_DEFPROP_HAVE_CONFIGURABLE" 
+foreign import capi "duktape.h value DUK_DEFPROP_HAVE_CONFIGURABLE"
   c_DUK_DEFPROP_HAVE_CONFIGURABLE :: DukUInt
 -- | Set value (given on value stack).
-foreign import capi "duktape.h value DUK_DEFPROP_HAVE_VALUE" 
+foreign import capi "duktape.h value DUK_DEFPROP_HAVE_VALUE"
   c_DUK_DEFPROP_HAVE_VALUE :: DukUInt
 -- | Set getter (given on value stack).
-foreign import capi "duktape.h value DUK_DEFPROP_HAVE_GETTER" 
+foreign import capi "duktape.h value DUK_DEFPROP_HAVE_GETTER"
   c_DUK_DEFPROP_HAVE_GETTER :: DukUInt
 -- | Set setter (given on value stack).
-foreign import capi "duktape.h value DUK_DEFPROP_HAVE_SETTER" 
+foreign import capi "duktape.h value DUK_DEFPROP_HAVE_SETTER"
   c_DUK_DEFPROP_HAVE_SETTER :: DukUInt
 -- | Force change if possible, may still fail for e.g. virtual properties.
-foreign import capi "duktape.h value DUK_DEFPROP_FORCE" 
+foreign import capi "duktape.h value DUK_DEFPROP_FORCE"
   c_DUK_DEFPROP_FORCE :: DukUInt
 
 c_DUK_DEFPROP_SET_WRITABLE :: DukUInt
@@ -538,22 +578,22 @@ c_DUK_DEFPROP_CLEAR_CONFIGURABLE =
 ----------------------------------------------------------------------------------------------------
 
 -- | Enumerate non-enumerable properties in addition to enumerable.
-foreign import capi "duktape.h value DUK_ENUM_INCLUDE_NONENUMERABLE" 
+foreign import capi "duktape.h value DUK_ENUM_INCLUDE_NONENUMERABLE"
   c_DUK_ENUM_INCLUDE_NONENUMERABLE :: DukUInt
 -- | Enumrate internal properties (regardless of enumerability).
-foreign import capi "duktape.h value DUK_ENUM_INCLUDE_HIDDEN" 
+foreign import capi "duktape.h value DUK_ENUM_INCLUDE_HIDDEN"
   c_DUK_ENUM_INCLUDE_HIDDEN :: DukUInt
 -- | Don't walk prototype chain, only check own properties.
-foreign import capi "duktape.h value DUK_ENUM_OWN_PROPERTIES_ONLY" 
+foreign import capi "duktape.h value DUK_ENUM_OWN_PROPERTIES_ONLY"
   c_DUK_ENUM_OWN_PROPERTIES_ONLY :: DukUInt
 -- | Only enumerate array indices.
-foreign import capi "duktape.h value DUK_ENUM_ARRAY_INDICES_ONLY" 
+foreign import capi "duktape.h value DUK_ENUM_ARRAY_INDICES_ONLY"
   c_DUK_ENUM_ARRAY_INDICES_ONLY :: DukUInt
 -- | Sort array indices, use with 'c_DUK_ENUM_ARRAY_INDICES_ONLY'.
-foreign import capi "duktape.h value DUK_ENUM_SORT_ARRAY_INDICES" 
+foreign import capi "duktape.h value DUK_ENUM_SORT_ARRAY_INDICES"
   c_DUK_ENUM_SORT_ARRAY_INDICES :: DukUInt
 -- | Enumerate a proxy object itself without invoking proxy behavior.
-foreign import capi "duktape.h value DUK_ENUM_NO_PROXY_BEHAVIOR" 
+foreign import capi "duktape.h value DUK_ENUM_NO_PROXY_BEHAVIOR"
   c_DUK_ENUM_NO_PROXY_BEHAVIOR :: DukUInt
 
 ----------------------------------------------------------------------------------------------------
@@ -872,6 +912,12 @@ foreign import capi safe "duktape.h duk_debugger_cooperate"
 foreign import capi safe "duktape.h duk_debugger_detach"
   duk_debugger_detach :: Ptr DukContext -> IO ()
 
+foreign import capi safe "duktape.h duk_debugger_notify"
+  duk_debugger_notify :: Ptr DukContext -> DukIdx -> IO DukBool
+
+foreign import capi safe "duktape.h duk_debugger_pause"
+  duk_debugger_pause :: Ptr DukContext -> IO ()
+
 type DukDecodeCharFunction a = Ptr a -> DukCodePoint -> IO ()
 
 foreign import capi safe "duktape.h duk_decode_string"
@@ -949,13 +995,28 @@ foreign import capi safe "duktape.h duk_get_buffer"
 foreign import capi safe "duktape.h duk_get_buffer_data"
   duk_get_buffer_data :: Ptr DukContext -> DukIdx -> Ptr DukSize -> IO (Ptr a)
 
+foreign import capi safe "duktape.h duk_get_buffer_data_default"
+  duk_get_buffer_data_default :: Ptr DukContext -> DukIdx -> Ptr DukSize ->
+                                 Ptr a -> DukSize -> IO (Ptr a)
+
+foreign import capi safe "duktape.h duk_get_buffer_default"
+  duk_get_buffer_default :: Ptr DukContext -> DukIdx -> Ptr DukSize ->
+                            Ptr a -> DukSize -> IO (Ptr a)
+
 type DukCFunction = Ptr DukContext -> IO DukRet
 
 foreign import capi safe "duktape.h duk_get_c_function"
   duk_get_c_function :: Ptr DukContext -> DukIdx -> IO (FunPtr DukCFunction)
 
+foreign import capi safe "duktape.h duk_get_c_function_default"
+  duk_get_c_function_default :: Ptr DukContext -> DukIdx ->
+                                FunPtr DukCFunction -> IO (FunPtr DukCFunction)
+
 foreign import capi safe "duktape.h duk_get_context"
   duk_get_context :: Ptr DukContext -> DukIdx -> IO (Ptr DukContext)
+
+foreign import capi safe "duktape.h duk_get_context_default"
+  duk_get_context_default :: Ptr DukContext -> DukIdx -> Ptr DukContext -> IO (Ptr DukContext)
 
 foreign import capi safe "duktape.h duk_get_current_magic"
   duk_get_current_magic :: Ptr DukContext -> IO DukInt
@@ -987,11 +1048,23 @@ foreign import capi safe "duktape.h duk_get_magic"
 foreign import capi safe "duktape.h duk_get_number"
   duk_get_number :: Ptr DukContext -> DukIdx -> IO DukDouble
 
+foreign import capi safe "duktape.h duk_get_number_default"
+  duk_get_number_default :: Ptr DukContext -> DukIdx -> DukDouble -> IO DukDouble
+
+foreign import capi safe "duktape.h duk_get_now"
+  duk_get_now :: Ptr DukContext -> IO DukDouble
+
 foreign import capi safe "duktape.h duk_get_pointer"
   duk_get_pointer :: Ptr DukContext -> DukIdx -> IO (Ptr a)
 
+foreign import capi safe "duktape.h duk_get_pointer_default"
+  duk_get_pointer_default :: Ptr DukContext -> DukIdx -> Ptr a -> IO (Ptr a)
+
 foreign import capi safe "duktape.h duk_get_prop"
   duk_get_prop :: Ptr DukContext -> DukIdx -> IO DukBool
+
+foreign import capi safe "duktape.h duk_get_prop_desc"
+  duk_get_prop_desc :: Ptr DukContext -> DukIdx -> DukUInt -> IO ()
 
 foreign import capi safe "duktape.h duk_get_prop_index"
   duk_get_prop_index :: Ptr DukContext -> DukIdx -> DukArrIdx -> IO DukBool
@@ -1004,6 +1077,9 @@ foreign import capi safe "duktape.h duk_get_prototype"
 
 foreign import capi safe "duktape.h duk_get_string"
   duk_get_string :: Ptr DukContext -> DukIdx -> IO CString
+
+foreign import capi safe "duktape.h duk_get_string_default"
+  duk_get_string_default :: Ptr DukContext -> DukIdx -> CString -> IO CString
 
 foreign import capi safe "duktape.h duk_get_top"
   duk_get_top :: Ptr DukContext -> IO DukIdx
@@ -1019,6 +1095,9 @@ foreign import capi safe "duktape.h duk_get_type_mask"
 
 foreign import capi safe "duktape.h duk_get_uint"
   duk_get_uint :: Ptr DukContext -> DukIdx -> IO DukUInt
+
+foreign import capi safe "duktape.h duk_get_uint_default"
+  duk_get_uint_default :: Ptr DukContext -> DukIdx -> DukUInt -> IO DukUInt
 
 foreign import capi safe "duktape.h duk_has_prop"
   duk_has_prop :: Ptr DukContext -> DukIdx -> IO DukBool
@@ -1038,6 +1117,12 @@ foreign import capi safe "duktape.h duk_hex_encode"
 foreign import capi safe "duktape.h duk_insert"
   duk_insert :: Ptr DukContext -> DukIdx -> IO ()
 
+foreign import capi safe "duktape.h duk_inspect_callstack_entry"
+  duk_inspect_callstack_entry :: Ptr DukContext -> DukInt -> IO ()
+
+foreign import capi safe "duktape.h duk_inspect_value"
+  duk_inspect_value :: Ptr DukContext -> DukIdx -> IO ()
+
 foreign import capi safe "duktape.h duk_instanceof"
   duk_instanceof :: Ptr DukContext -> DukIdx -> DukIdx -> IO DukBool
 
@@ -1052,6 +1137,9 @@ foreign import capi safe "duktape.h duk_is_bound_function"
 
 foreign import capi safe "duktape.h duk_is_buffer"
   duk_is_buffer :: Ptr DukContext -> DukIdx -> IO DukBool
+
+foreign import capi safe "duktape.h duk_is_buffer_data"
+  duk_is_buffer_data :: Ptr DukContext -> DukIdx -> IO DukBool
 
 foreign import capi safe "duktape.h duk_is_c_function"
   duk_is_c_function :: Ptr DukContext -> DukIdx -> IO DukBool
@@ -1119,6 +1207,9 @@ foreign import capi safe "duktape.h duk_is_strict_call"
 foreign import capi safe "duktape.h duk_is_string"
   duk_is_string :: Ptr DukContext -> DukIdx -> IO DukBool
 
+foreign import capi safe "duktape.h duk_is_symbol"
+  duk_is_symbol :: Ptr DukContext -> DukIdx -> IO DukBool
+
 foreign import capi safe "duktape.h duk_is_syntax_error"
   duk_is_syntax_error :: Ptr DukContext -> DukIdx -> DukBool
 
@@ -1162,6 +1253,43 @@ foreign import capi safe "duktape.h duk_next"
 
 foreign import capi safe "duktape.h duk_normalize_index"
   duk_normalize_index :: Ptr DukContext -> DukIdx -> IO DukIdx
+
+
+
+
+
+foreign import capi safe "duktape.h duk_opt_boolean"
+  duk_opt_boolean :: Ptr DukContext -> DukIdx -> DukBool -> IO DukBool
+
+foreign import capi safe "duktape.h duk_opt_buffer"
+  duk_opt_buffer :: Ptr DukContext -> DukIdx -> Ptr DukSize -> Ptr a -> DukSize -> IO (Ptr a)
+
+foreign import capi safe "duktape.h duk_opt_buffer_data"
+  duk_opt_buffer_data :: Ptr DukContext -> DukIdx -> Ptr DukSize -> Ptr a -> DukSize -> IO (Ptr a)
+
+foreign import capi safe "duktape.h duk_opt_c_function"
+  duk_opt_c_function :: Ptr DukContext -> DukIdx -> FunPtr DukCFunction -> IO (FunPtr DukCFunction)
+
+foreign import capi safe "duktape.h duk_opt_context"
+  duk_opt_context :: Ptr DukContext -> DukIdx -> Ptr DukContext -> IO (Ptr DukContext)
+
+foreign import capi safe "duktape.h duk_opt_heapptr"
+  duk_opt_heapptr :: Ptr DukContext -> DukIdx -> Ptr a -> IO (Ptr a)
+
+foreign import capi safe "duktape.h duk_opt_int"
+  duk_opt_int :: Ptr DukContext -> DukIdx -> DukInt -> IO DukInt
+
+foreign import capi safe "duktape.h duk_opt_string"
+  duk_opt_string :: Ptr DukContext -> DukIdx -> CString -> IO CString
+
+foreign import capi safe "duktape.h duk_opt_number"
+  duk_opt_number :: Ptr DukContext -> DukIdx -> DukDouble -> IO DukDouble
+
+foreign import capi safe "duktape.h duk_opt_pointer"
+  duk_opt_pointer :: Ptr DukContext -> DukIdx -> Ptr a -> IO (Ptr a)
+
+foreign import capi safe "duktape.h duk_opt_uint"
+  duk_opt_uint :: Ptr DukContext -> DukIdx -> DukUInt -> IO DukUInt
 
 foreign import capi safe "duktape.h duk_pcall"
   duk_pcall :: Ptr DukContext -> DukIdx -> IO DukInt
@@ -1222,6 +1350,9 @@ foreign import capi safe "duktape.h duk_pop_n"
 
 foreign import capi safe "duktape.h duk_push_array"
   duk_push_array :: Ptr DukContext -> IO DukIdx
+
+foreign import capi safe "duktape.h duk_push_bare_object"
+  duk_push_bare_object :: Ptr DukContext -> IO DukIdx
 
 foreign import capi safe "duktape.h duk_push_boolean"
   duk_push_boolean :: Ptr DukContext -> DukBool -> IO ()
@@ -1415,6 +1546,20 @@ foreign import capi safe "duktape.h duk_require_valid_index"
 foreign import capi safe "duktape.h duk_resize_buffer"
   duk_resize_buffer :: Ptr DukContext -> DukIdx -> DukSize -> IO (Ptr a)
 
+data DukThreadState = DukThreadState
+
+instance Storable DukThreadState where
+  sizeOf    _ = 128
+  alignment _ = 1
+  peek      _ = return DukThreadState
+  poke    _ _ = return ()
+
+foreign import capi safe "duktape.h duk_resume"
+  duk_resume :: Ptr DukContext -> Ptr DukThreadState -> IO ()
+
+foreign import capi safe "duktape.h duk_suspend"
+  duk_suspend :: Ptr DukContext -> Ptr DukThreadState -> IO ()
+
 type DukSafeCallFunction a = Ptr DukContext -> Ptr a -> IO DukRet
 
 foreign import capi safe "duktape.h duk_safe_call"
@@ -1432,6 +1577,9 @@ foreign import capi safe "duktape.h duk_set_finalizer"
 foreign import capi safe "duktape.h duk_set_global_object"
   duk_set_global_object :: Ptr DukContext -> IO ()
 
+foreign import capi safe "duktape.h duk_set_length"
+  duk_set_length :: Ptr DukContext -> DukIdx -> DukSize -> IO ()
+
 foreign import capi safe "duktape.h duk_set_magic"
   duk_set_magic :: Ptr DukContext -> DukIdx -> DukInt -> IO ()
 
@@ -1446,6 +1594,9 @@ foreign import capi safe "duktape.h duk_steal_buffer"
 
 foreign import capi safe "duktape.h duk_strict_equals"
   duk_strict_equals :: Ptr DukContext -> DukIdx -> DukIdx -> IO DukBool
+
+foreign import capi safe "duktape.h duk_samevalue"
+  duk_samevalue :: Ptr DukContext -> DukIdx -> DukIdx -> IO DukBool
 
 foreign import capi safe "duktape.h duk_substring"
   duk_substring :: Ptr DukContext -> DukIdx -> DukSize -> DukSize -> IO ()
@@ -1464,6 +1615,9 @@ foreign import capi safe "duktape.h duk_to_boolean"
 
 foreign import capi safe "duktape.h duk_to_buffer"
   duk_to_buffer :: Ptr DukContext -> DukIdx -> Ptr DukSize -> IO (Ptr a)
+
+foreign import capi safe "duktape.h duk_buffer_to_string"
+  duk_buffer_to_string :: Ptr DukContext -> DukIdx -> IO CString
 
 foreign import capi safe "duktape.h duk_to_dynamic_buffer"
   duk_to_dynamic_buffer :: Ptr DukContext -> DukIdx -> Ptr DukSize -> IO (Ptr a)
@@ -1519,4 +1673,44 @@ foreign import capi safe "duktape.h duk_xcopy_top"
 foreign import capi safe "duktape.h duk_xmove_top"
   duk_xmove_top :: Ptr DukContext -> Ptr DukContext -> DukIdx -> IO ()
 
+data DukTimeComponents
+  = DukTimeComponents { dukTimeYear         :: DukDouble
+                      , dukTimeMonth        :: DukDouble
+                      , dukTimeDay          :: DukDouble
+                      , dukTimeHours        :: DukDouble
+                      , dukTimeMinutes      :: DukDouble
+                      , dukTimeSeconds      :: DukDouble
+                      , dukTimeMilliseconds :: DukDouble
+                      , dukTimeWeekday      :: DukDouble
+                      }
+  deriving (Eq, Ord, Read, Show)
 
+instance Storable DukTimeComponents where
+  sizeOf    _ = 8 * sizeOf (0 :: DukDouble)
+  alignment _ = alignment (0 :: DukDouble)
+
+  peek p =
+    DukTimeComponents <$> peekElemOff (castPtr p) 0
+                      <*> peekElemOff (castPtr p) 1
+                      <*> peekElemOff (castPtr p) 2
+                      <*> peekElemOff (castPtr p) 3
+                      <*> peekElemOff (castPtr p) 4
+                      <*> peekElemOff (castPtr p) 5
+                      <*> peekElemOff (castPtr p) 6
+                      <*> peekElemOff (castPtr p) 7
+
+  poke p (DukTimeComponents y m d hh mm ss ms wd) = do
+    pokeElemOff (castPtr p) 0 y
+    pokeElemOff (castPtr p) 1 m
+    pokeElemOff (castPtr p) 2 d
+    pokeElemOff (castPtr p) 3 hh
+    pokeElemOff (castPtr p) 4 mm
+    pokeElemOff (castPtr p) 5 ss
+    pokeElemOff (castPtr p) 6 ms
+    pokeElemOff (castPtr p) 7 wd
+
+foreign import capi "duktape.h duk_components_to_time"
+  duk_components_to_time :: Ptr DukContext -> Ptr DukTimeComponents -> IO DukDouble
+
+foreign import capi "duktape.h duk_time_to_components"
+  duk_time_to_components :: Ptr DukContext -> DukDouble -> Ptr DukTimeComponents -> IO ()
