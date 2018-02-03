@@ -88,6 +88,7 @@ module Language.JavaScript.Duktape
   , getValue
   , getJson
   , getBuffer
+  , getBufferData
     -- * Object, Array Operations and Enumeration
   , EnumMode (..)
   , enum
@@ -357,7 +358,7 @@ replace sctx idx = withDukContext sctx $ \ctx ->
 swap :: ScriptContext -> StackIndex -> StackIndex -> IO ()
 swap sctx from to = withDukContext sctx $ \ctx ->
   duk_swap ctx (fromIntegral from) (fromIntegral to)
-  
+
 swapTop :: ScriptContext -> StackIndex -> IO ()
 swapTop sctx from = withDukContext sctx $ \ctx ->
   duk_swap_top ctx (fromIntegral from)
@@ -603,7 +604,7 @@ getValue sctx idx' = do
         (enumerate sctx idx (EnumProperties True False False) True $ const $ do
             key  <- getText sctx (negate 2)
             fmap (key, ) <$> getValue sctx (negate 1))
-    
+
 --getValue :: ScriptContext -> StackIndex -> IO (Either String Value)
 --getValue = getJson
 
@@ -625,7 +626,7 @@ getJsonEncoded sctx idx = withDukContext sctx $ \ctx -> do
   duk_pop ctx
   str <- peekCString cstr
   return (eitherDecodeStrict (encodeUtf8 (pack str)))
-      
+
 --getJson :: FromJSON a => ScriptContext -> StackIndex -> IO (Either String a)
 --getJson sctx idx = withDukContext sctx $ \ctx -> do
 --  duk_dup ctx (fromIntegral idx)
@@ -639,6 +640,13 @@ getBuffer :: ScriptContext -> StackIndex -> IO ByteString
 getBuffer sctx idx = withDukContext sctx $ \ctx -> do
   (pbuf, len) <- alloca $ \plen -> do
     pbuf <- duk_get_buffer ctx (fromIntegral idx) plen
+    (,) pbuf <$> peek plen
+  unsafePackCStringLen (pbuf, fromIntegral len)
+
+getBufferData :: ScriptContext -> StackIndex -> IO ByteString
+getBufferData sctx idx = withDukContext sctx $ \ctx -> do
+  (pbuf, len) <- alloca $ \plen -> do
+    pbuf <- duk_get_buffer_data ctx (fromIntegral idx) plen
     (,) pbuf <$> peek plen
   unsafePackCStringLen (pbuf, fromIntegral len)
 
@@ -702,7 +710,7 @@ enumerate ctx idx mode getval action = do
           when getval (pop ctx)
           pop ctx
           go (f . (r :))
-        else return (f []) 
+        else return (f [])
 
 enumerate_ :: ScriptContext -> StackIndex -> EnumMode -> Bool -> (ScriptContext -> IO a) -> IO ()
 enumerate_ ctx idx mode getval action = do
@@ -895,7 +903,7 @@ defineProperty sctx idx PropInfo{..} = withDukContext sctx $ \ctx -> do
                         then c_DUK_DEFPROP_SET_WRITABLE else c_DUK_DEFPROP_CLEAR_WRITABLE
                 else 0) .|.
             (if propInfoIsEnumerable
-                then c_DUK_DEFPROP_SET_ENUMERABLE else c_DUK_DEFPROP_CLEAR_ENUMERABLE) .|. 
+                then c_DUK_DEFPROP_SET_ENUMERABLE else c_DUK_DEFPROP_CLEAR_ENUMERABLE) .|.
             (if propInfoIsConfigurable
                 then c_DUK_DEFPROP_SET_CONFIGURABLE else c_DUK_DEFPROP_CLEAR_CONFIGURABLE)
 
@@ -920,7 +928,7 @@ getPropertyByName sctx idx name = withDukContext sctx $ \ctx ->
   withCString name $ \cname -> (/= 0) <$> duk_get_prop_string ctx (fromIntegral idx) cname
 
 getPropertyByIndex :: ScriptContext -> StackIndex -> Word32 -> IO Bool
-getPropertyByIndex sctx idx i = withDukContext sctx $ \ctx -> 
+getPropertyByIndex sctx idx i = withDukContext sctx $ \ctx ->
   (/= 0) <$> duk_get_prop_index ctx (fromIntegral idx) (fromIntegral i)
 
 hasProperty :: ScriptContext -> StackIndex -> IO Bool
@@ -932,7 +940,7 @@ hasPropertyByName sctx idx name = withDukContext sctx $ \ctx ->
   withCString name $ \cname -> (/= 0) <$> duk_has_prop_string ctx (fromIntegral idx) cname
 
 hasPropertyByIndex :: ScriptContext -> StackIndex -> Word32 -> IO Bool
-hasPropertyByIndex sctx idx i = withDukContext sctx $ \ctx -> 
+hasPropertyByIndex sctx idx i = withDukContext sctx $ \ctx ->
   (/= 0) <$> duk_has_prop_index ctx (fromIntegral idx) (fromIntegral i)
 
 setProperty :: ScriptContext -> StackIndex -> IO Bool
