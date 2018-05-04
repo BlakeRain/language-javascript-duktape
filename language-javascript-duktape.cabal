@@ -1,5 +1,5 @@
 name:          language-javascript-duktape
-version:       2.2.0
+version:       2.2.1
 synopsis:      Interface to Duktape JavaScript library
 maintainer:    Blake Rain <blake.rain@inchora.com>
 license:       MIT
@@ -13,8 +13,8 @@ library
   hs-source-dirs: src
   include-dirs: duktape
   c-sources: duktape/duktape.c
-  includes: duktape.h
-  install-includes: duktape.h
+  includes: duktape.h duk_config.h
+  install-includes: duktape.h duk_config.h
   build-depends:
                 aeson,
                 base,
