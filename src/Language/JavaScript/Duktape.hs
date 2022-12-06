@@ -139,7 +139,6 @@ import           Data.ByteString (ByteString, useAsCStringLen)
 import           Data.ByteString.Internal (memcpy)
 import           Data.ByteString.Unsafe (unsafePackCStringLen)
 import           Data.Default
-import qualified Data.HashMap.Strict as HM
 import           Data.Maybe
 import           Data.Text (Text, pack, unpack)
 import           Data.Text.Encoding (encodeUtf8)
@@ -155,6 +154,8 @@ import           Foreign.Storable
 import           Prelude hiding (isNaN)
 
 import           Language.JavaScript.Duktape.Raw
+
+import qualified Data.HashMap.Strict as AM
 
 ----------------------------------------------------------------------------------------------------
 
@@ -435,7 +436,7 @@ pushValue cxt val = case val of
     let f (k, v) = do
           pushValue cxt v
           setPropertyByName cxt ix (unpack k)
-    mapM_ f (HM.toList o)
+    mapM_ f (aesonObjectToList o)
 
 pushJson :: ToJSON a => ScriptContext -> a -> IO ()
 pushJson cxt val = pushValue cxt (toJSON val)
@@ -606,8 +607,17 @@ getValue sctx idx' = do
             fmap (key, ) <$> getValue sctx (negate 1))
 
 jsonObjectFromList :: [(Text, Value)] -> Value
-jsonObjectFromList =
-  Object . HM.fromList
+jsonObjectFromList vals =
+  Object $ AM.fromList $ do
+    (k, v) <- vals
+    pure (textToAesonKey k, v)
+
+textToAesonKey :: Text -> Text
+textToAesonKey = id
+
+aesonObjectToList :: Object -> [(Text, Value)]
+aesonObjectToList =
+  AM.toList
 
 --getValue :: ScriptContext -> StackIndex -> IO (Either String Value)
 --getValue = getJson
