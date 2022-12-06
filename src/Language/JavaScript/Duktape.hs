@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE TypeFamilies     #-}
 {-# LANGUAGE TupleSections    #-}
 {-# LANGUAGE RecordWildCards  #-}
@@ -155,7 +156,12 @@ import           Prelude hiding (isNaN)
 
 import           Language.JavaScript.Duktape.Raw
 
+#if MIN_VERSION_aeson(2,0,0)
+import qualified Data.Aeson.Key as AK
+import qualified Data.Aeson.KeyMap as AM
+#else
 import qualified Data.HashMap.Strict as AM
+#endif
 
 ----------------------------------------------------------------------------------------------------
 
@@ -612,12 +618,24 @@ jsonObjectFromList vals =
     (k, v) <- vals
     pure (textToAesonKey k, v)
 
+#if MIN_VERSION_aeson(2,0,0)
+textToAesonKey :: Text -> Key
+textToAesonKey = AK.fromText
+#else
 textToAesonKey :: Text -> Text
 textToAesonKey = id
+#endif
 
+#if MIN_VERSION_aeson(2,0,0)
+aesonObjectToList :: AM.KeyMap Value -> [(Text, Value)]
+aesonObjectToList km = do
+  (k, v) <- AM.toList km
+  pure (AK.toText k, v)
+#else
 aesonObjectToList :: Object -> [(Text, Value)]
 aesonObjectToList =
   AM.toList
+#endif
 
 --getValue :: ScriptContext -> StackIndex -> IO (Either String Value)
 --getValue = getJson
