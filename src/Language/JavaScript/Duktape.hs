@@ -600,10 +600,14 @@ getValue sctx idx' = do
     _          -> return Nothing
   where
     objectFallback idx =
-      Just . Object . HM.fromList . catMaybes <$>
+      Just . jsonObjectFromList . catMaybes <$>
         (enumerate sctx idx (EnumProperties True False False) True $ const $ do
             key  <- getText sctx (negate 2)
             fmap (key, ) <$> getValue sctx (negate 1))
+
+jsonObjectFromList :: [(Text, Value)] -> Value
+jsonObjectFromList =
+  Object . HM.fromList
 
 --getValue :: ScriptContext -> StackIndex -> IO (Either String Value)
 --getValue = getJson
