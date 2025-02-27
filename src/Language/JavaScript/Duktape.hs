@@ -17,6 +17,7 @@ module Language.JavaScript.Duktape
     ScriptContext
   , newContext
   , withDukContext
+  , destroyStackContext
     -- * Types of Stack Values
   , StackIndex
   , Type (..)
@@ -178,6 +179,10 @@ newContext = do
 withDukContext :: ScriptContext -> (Ptr DukContext -> IO a) -> IO a
 withDukContext (ScriptContext mfpctx) action =
   withForeignPtr mfpctx action
+
+destroyScriptContext :: ScriptContext -> IO ()
+destroyScriptContext (ScriptContext fptr) =
+  finalizeForeignPtr fptr
 
 ----------------------------------------------------------------------------------------------------
 
